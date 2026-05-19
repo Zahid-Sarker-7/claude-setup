@@ -1,6 +1,6 @@
-# Claude Code Skills — DEX Team
+# Claude Code Skills
 
-A shared collection of custom [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills used by the DEX team at Optimizely.
+A collection of custom [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills used by me for an end-to-end automated workflow.
 
 ## What's included
 
