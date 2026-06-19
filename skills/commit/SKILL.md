@@ -3,15 +3,17 @@ name: commit
 description: Plan and execute atomic commits for all uncommitted changes. Use when ready to commit work.
 argument-hint: "[staged]"
 disable-model-invocation: true
-allowed-tools: Bash(git add *) Bash(git commit *) Bash(git status *) Bash(git diff *) Bash(git log *) Bash(git branch *)
+allowed-tools: Bash(git add *) Bash(git commit *) Bash(git status *) Bash(git diff *) Bash(git log *) Bash(git branch *) Bash(make format*) Bash(poetry run isort *) Bash(poetry run black *)
 ---
 
 # Plan and Execute Atomic Commits
 
 Analyse all unstaged/staged changes and split them into the right number of atomic commits. Each commit message must convey the actual work done — not the file changed or test type, but the feature or fix it delivers.
 
-## Step 0 — Get current git state
-Run via Bash tool: `git branch --show-current && git status --short && echo "---" && git diff --stat HEAD | tail -5`
+## Current git state
+```
+!`git branch --show-current && echo "---" && git status --short && echo "---" && git diff --stat HEAD | tail -5`
+```
 
 ## Usage
 

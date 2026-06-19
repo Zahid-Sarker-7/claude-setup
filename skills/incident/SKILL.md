@@ -66,13 +66,23 @@ Parse all tokens:
 **Time window:** <window>
 **Environment:** <env>
 
+## Affected Flow
+
+<ASCII diagram showing which component is failing in the system>
+
+User → App UI → Gateway → Hypatia → TMS → opal-tools
+                                              └─► TS Backend ← FAILING
+
 ## Alert Summary
-**Error:** <error message>
-**Affected service/tool:** <name>
-**First seen:** <timestamp>
-**Last seen:** <timestamp>
-**Frequency:** <count / rate>
-**Status:** Ongoing | Resolved
+
+| Field | Value |
+|-------|-------|
+| Error | <error message> |
+| Service/Tool | <name> |
+| First seen | <timestamp> |
+| Last seen | <timestamp> |
+| Frequency | <count / rate> |
+| Status | Ongoing / Resolved |
 
 ## Root Cause
 <what is failing and why, file + line if traceable>

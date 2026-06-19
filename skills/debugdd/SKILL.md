@@ -12,8 +12,10 @@ allowed-tools: Bash(git rev-parse *) Bash(git branch *)
 
 Debug a production issue by searching Datadog logs and cross-referencing the codebase.
 
-## Step 0 — Get current context
-Run via Bash tool: `git rev-parse --show-toplevel 2>/dev/null; git branch --show-current 2>/dev/null`
+## Current context
+```
+!`git rev-parse --show-toplevel 2>/dev/null; git branch --show-current 2>/dev/null`
+```
 
 ## Input: $ARGUMENTS
 
@@ -94,28 +96,28 @@ If there are errors or unexpected behavior, use `.claude/rules/` files to locate
 
 ---
 
+## Request Flow
+
+<ASCII diagram showing the request path, marking where the error occurred>
+
+User → Gateway → Hypatia → TMS → opal-tools → TS Backend
+                                                   └─► ERROR HERE
+
 ## Request Lifecycle
 
-<timestamp> REQUEST  <METHOD> <path>
-  user: <user/org> | env: <env>
+| Timestamp | Event | Detail |
+|-----------|-------|--------|
+| <ts> | REQUEST | <METHOD> <path> — user: <user/org>, env: <env> |
+| <ts> | AUTH | <result> |
+| <ts> | TOOL | <tool_name> — input: <key args>, output: <summary>, <duration>ms |
+| <ts> | LLM | <model> — tokens_in: <n>, tokens_out: <n> |
+| <ts> | ERROR | <error.message> |
+| <ts> | RESPONSE | <status_code> in <total_duration>ms |
 
-<timestamp> AUTH     <result>
-
-[if tools were called, one block per tool:]
-<timestamp> TOOL     <tool_name>
-  INPUT:  <key args from tool_input>
-  OUTPUT: <summary of tool_output or error>
-  Time:   <duration_ms>ms
-
-[if LLM calls:]
-<timestamp> LLM      <model>
-  tokens_in: <n> | tokens_out: <n>
-
-[if errors:]
-<timestamp> ERROR    <error.message>
-  <error.stack first 5 lines>
-
-<timestamp> RESPONSE <status_code> in <total_duration>ms
+[if errors, include stack trace separately:]
+```
+<error.stack first 5 lines>
+```
 
 ---
 
@@ -127,3 +129,4 @@ If there are errors or unexpected behavior, use `.claude/rules/` files to locate
 ```
 
 If no errors were found and the lifecycle looks normal, say so clearly and summarize what the request did.
+

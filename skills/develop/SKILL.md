@@ -18,14 +18,20 @@ Understand what a Jira ticket requires, explore the relevant code, plan the impl
 
 ## Steps
 
-### Step 0 — Get current context
-
-Run via Bash tool:
-```bash
-git rev-parse --show-toplevel 2>/dev/null; git branch --show-current 2>/dev/null
+### Current context
+```
+!`git rev-parse --show-toplevel 2>/dev/null; git branch --show-current 2>/dev/null`
 ```
 
-If not in a git repo, infer the project from conversation context (e.g., recent `/startwork`, Jira ticket, or file paths discussed). If still unclear, ask the user which project to work in.
+If not in a git repo, infer the project from conversation context (e.g., recent `/startwork`, Jira ticket, or file paths discussed). If still unclear, ask the user which project to work in using the known projects table:
+
+| Name | Path |
+|------|------|
+| opal-tools | `/Users/zahid.sarker/Official/Project/opal-tools` |
+| opal-app | `/Users/zahid.sarker/Official/Project/opal-app` |
+| optimizely | `/Users/zahid.sarker/Official/Project/optimizely` |
+| frontdoor | `/Users/zahid.sarker/Official/Project/frontdoor` |
+| authz-sdk | `/Users/zahid.sarker/Official/Project/authz-sdk` |
 
 ### Step 1 — Gather ticket context
 
@@ -51,10 +57,20 @@ If the ticket description is ambiguous or missing key information, ask the user 
 
 Enter plan mode. Explore the codebase to build the plan — find entry points, read the implementation, check test files, identify shared utilities, and understand callers/consumers. Use Grep, Glob, Read, and the Agent tool with `subagent_type: Explore` as needed.
 
-Present a structured implementation plan:
+Present a structured implementation plan. **Always open with a high-level diagram** showing the affected flow or architecture — the reader should understand the design at a glance before reading details.
 
 ```
 ## Implementation Plan: [TICKET-ID] — [Summary]
+
+### High-Level Flow
+<ASCII diagram showing the affected data/request flow, components touched, or before→after architecture.
+Use box drawing (─, │, ┌, └, ►) or arrow notation (→, └─►). Examples:>
+
+User Request → API Gateway → Handler ──► Service
+                                          │
+                                          ├─► Step 1: Validate
+                                          ├─► Step 2: Transform  ← THIS CHANGES
+                                          └─► Step 3: Persist
 
 ### Understanding
 <What the ticket requires, in your own words>
@@ -62,21 +78,20 @@ Present a structured implementation plan:
 ### Approach
 <How you plan to implement it, with rationale>
 
-### Files to Modify
-1. `path/to/file.ts` — <what changes and why>
-2. `path/to/other.py` — <what changes and why>
+### Changes
+
+| File | What changes | Why |
+|------|-------------|-----|
+| `path/to/file.ts` | <change> | <reason> |
+| `path/to/other.py` | <change> | <reason> |
 
 ### Test Plan
 
-**Before-state tests** (to run with /testexpcrud --before):
-1. <test scenario that should show current behavior/bug>
-2. <test scenario for regression baseline>
-3. <edge case scenario>
-
-**After-state tests** (to run with /testexpcrud --after):
-1. <test scenario that should show fixed/new behavior>
-2. <same regression test — should still pass>
-3. <same edge case — should now be handled>
+| # | Scenario | Type | Expected (before) | Expected (after) |
+|---|----------|------|--------------------|-------------------|
+| 1 | <scenario> | task-specific | <behavior/bug> | <fixed behavior> |
+| 2 | <scenario> | regression | <works> | <still works> |
+| 3 | <scenario> | edge case | <unhandled> | <handled> |
 
 ### Risks / Edge Cases
 - <potential issues to watch for>

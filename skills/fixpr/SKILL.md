@@ -1,20 +1,18 @@
 ---
 name: fixpr
-description: Address PR review feedback (Copilot, reviewers) — make code changes, reply to comments, and resolve conversations. Auto-detects PR from current branch or takes explicit PR number.
+description: Fix PR issues — CI pipeline failures AND review feedback (Copilot, Claude, reviewers). Checks CI status first, waits for pending pipelines, then addresses all issues in one batch. Auto-detects PR from current branch or takes explicit PR number.
 argument-hint: "[pr <number>]"
 disable-model-invocation: true
 allowed-tools: Bash(git *) Bash(gh *) Bash(cat *) Bash(NODE_OPTIONS=* npx jest*) Bash(npx tsc*) Bash(poetry run pytest*) Bash(make test*)
 ---
 
-# Fix PR Review Feedback
+# Fix PR Issues — CI Failures & Review Feedback
 
-Address review feedback on a GitHub PR: read comments, make code changes, reply, and resolve conversations.
+Fix both CI pipeline failures and review feedback on a GitHub PR. Checks pipelines first, waits for pending ones, then addresses all issues in one commit+push.
 
-## Step 0 — Get current branch context
-Run via Bash tool:
-```bash
-git branch --show-current
-git rev-parse --show-toplevel
+## Current branch context
+```
+!`git branch --show-current && git rev-parse --show-toplevel`
 ```
 
 ## Usage
@@ -37,7 +35,48 @@ gh pr list --head "$(git branch --show-current)" --json number,url --jq '.[0].nu
 
 If no PR is found, tell the user and stop.
 
-### Step 2 — Fetch all review comments (unresolved only)
+### Step 2 — Check CI pipeline status
+
+Check all pipeline checks on the PR:
+
+```bash
+gh pr checks <PR_NUMBER>
+```
+
+**Categorise each check:**
+
+| Status | Action |
+|--------|--------|
+| `pass` | No action needed |
+| `fail` | Fetch logs and diagnose — this must be fixed |
+| `pending` / `skipping` / no status | Pipeline still running or waiting |
+
+**If any pipelines are still pending** (especially `claude-review`, `claude-deep-review`, or `run_tests`):
+- Tell the user which pipelines are still running
+- Ask if they want to wait or proceed with what's available
+- If waiting, tell the user to re-run `/fixpr` when the pipelines complete
+
+**For each failed check**, fetch the failure logs:
+
+```bash
+# Get the run ID from the checks output URL, then:
+gh run view <RUN_ID> --log-failed 2>&1 | tail -60
+```
+
+**Common CI failure patterns:**
+
+| Pattern | Fix |
+|---------|-----|
+| `editorconfig-checker` — wrong indentation | Fix spacing to match `.editorconfig` (typically 4-space indent for Python, 2-space for TS) |
+| `editorconfig-checker` — trailing whitespace | Remove trailing whitespace |
+| `black` / `flake8` / `pylint` — formatting | Run `make format` or fix manually |
+| `tsc` — TypeScript compilation error | Fix the type error |
+| `jest` — test failure | Read the failing test, fix code or test |
+| `pytest` — test failure | Read the failing test, fix code or test |
+
+**Track all CI fixes needed** — they will be combined with review feedback fixes into one commit in Step 5.
+
+### Step 3 — Fetch all review comments (unresolved only)
 
 Use the GraphQL API with **pagination** to get ALL unresolved review threads. PRs with many review rounds can have 50+ threads — `first: 50` without pagination will silently miss threads.
 
@@ -80,7 +119,7 @@ gh repo view --json nameWithOwner --jq '.nameWithOwner'
 
 **Save the thread IDs** — you will need them in Step 6 to resolve conversations.
 
-### Step 3 — Categorise and plan
+### Step 4 — Categorise and plan
 
 For each unresolved comment, categorise it and assess severity:
 
@@ -97,7 +136,7 @@ For each unresolved comment, categorise it and assess severity:
 **Severity levels — assess each comment based on actual impact:**
 
 | Severity | Meaning | Action guidance |
-|----------|---------|------------------|
+|----------|---------|-----------------|
 | **CRITICAL** | Bug that breaks production, data loss, security vulnerability, silent wrong behaviour | Must fix before merge |
 | **HIGH** | Incorrect logic that affects edge cases, missing error handling that causes bad UX, contract violations | Should fix |
 | **MEDIUM** | Defensive coding improvements, missing tests for new code paths, misleading comments | Fix if straightforward, explain if deferring |
@@ -111,11 +150,17 @@ For each unresolved comment, categorise it and assess severity:
 - "Type safety gap on `any` from external source" → MEDIUM if the field is user-facing, LOW if internal
 - Automated reviewer comments (copilot, claude) tend to flag defensive patterns — assess whether the scenario is realistic before assigning HIGH
 
-Present a numbered summary to the user before doing anything:
+Present a numbered summary to the user before doing anything. Include both CI failures and review comments:
 
 ```
-## PR #380 — 3 unresolved review comments
+## PR #380 — 1 CI failure + 3 unresolved review comments
 
+### CI Failures
+[CI-1] run_tests — editorconfig-checker
+       src/tools/exp_manage_entity_lifecycle.py: lines 468-470 wrong indentation (want multiple of 4)
+       Plan: Fix indentation to 4-space multiples
+
+### Review Comments
 [1] CRITICAL — EntityLifecycleManager.ts:694 (copilot-pull-request-reviewer)
     Unguarded JSON.parse throws on malformed input — regression from old code
     Plan: Wrap in try/catch with fallback
@@ -131,12 +176,15 @@ Present a numbered summary to the user before doing anything:
     Plan: Reply with explanation — field is guaranteed by return_fields query
     Category: Can safely ignore
 
+### Pending Pipelines
+⏳ claude-deep-review — still running (wait or proceed?)
+
 Proceed? (yes / edit / skip)
 ```
 
 Wait for user confirmation before making changes. If the user says "yes" or similar affirmative, proceed. If they say "skip N", skip that item. If they provide edits, adjust the plan.
 
-### Step 4 — Make code changes
+### Step 5 — Make code changes
 
 **CRITICAL — Do not make narrow, isolated fixes. Every fix must account for the surrounding control flow.**
 
@@ -153,7 +201,7 @@ For each item that requires a code change:
 3. **Make the change** using the Edit tool
 4. **Self-review the diff** — re-read the function with your change applied. Specifically check:
    - No double-wrapping: errors thrown inside a `try` are not caught and re-wrapped by the same function's `catch`
-   - No silent fall-through: when an early branch fails, execution doesn't silently continue to a different branch
+   - No silent fall-through: when an early branch fails, execution doesn't silently continue to a different branch (e.g., ID lookup fails → name lookup runs without the caller knowing)
    - No truthiness bugs: `if (x)` vs `if (x !== undefined && x !== null)` for values where `0`, `""`, or `false` are valid
    - No scope issues: variables declared inside `try` that are referenced after `catch`
 5. **Run tests** to verify nothing broke:
@@ -163,7 +211,7 @@ For each item that requires a code change:
 
 **If you are fixing multiple comments in the same file, read the file ONCE, understand the full picture, then make ALL changes together. Do not fix-commit-push one at a time — that triggers a new review cycle per push.**
 
-### Step 5 — Commit and push (ONE push per /fixpr invocation)
+### Step 6 — Commit and push (ONE push per /fixpr invocation)
 
 **CRITICAL — Make ALL changes before committing. Do NOT commit-push-fix-commit-push in a loop.** Each push triggers a new automated review cycle, which creates more comments, which triggers more fixes — an infinite feedback loop. Batch everything into ONE commit and ONE push.
 
@@ -181,7 +229,7 @@ git push
 - No ticket ID (it's in the branch name)
 - No Claude attribution
 
-### Step 6 — Reply to each comment and resolve
+### Step 7 — Reply to each comment and resolve
 
 For each unresolved thread:
 
@@ -216,14 +264,17 @@ mutation {
 - If the mutation returns an error, log it and continue — do not retry the exact same call
 - Post the reply FIRST, then resolve. If resolve fails, the reply is still visible.
 
-### Step 7 — Summary
+### Step 8 — Summary
 
 Print a final summary:
 
 ```
 ## Done — PR #380
 
-Addressed 2 review comments:
+CI fixes:
+  [CI-1] Fixed indentation in exp_manage_entity_lifecycle.py (editorconfig)
+
+Review feedback addressed (2):
   [1] EntityLifecycleManager.ts:694 — updated comment text
   [2] EntityRouter.ts:339 — added 2 unit tests (page update payload stripping, missing entity ID)
 

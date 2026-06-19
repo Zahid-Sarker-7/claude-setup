@@ -108,6 +108,15 @@ Jira: <DHK-XXXX — Summary> | none detected
 
 ---
 
+### What this PR changes (at a glance)
+<ASCII diagram showing where in the system flow this PR makes changes.
+Mark the affected component(s). Example:>
+
+Request → Gateway → Handler → Orchestrator
+                                   ├─► Create   ← MODIFIED
+                                   ├─► Validate ← NEW
+                                   └─► Persist
+
 ### What this PR is trying to achieve
 <2–4 sentences: the problem being solved, the approach taken, and why it matters.
 Based on the PR description, Jira ticket, and your reading of the code.>

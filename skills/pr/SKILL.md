@@ -10,12 +10,15 @@ allowed-tools: Bash(git branch *) Bash(git log *) Bash(git diff *) Bash(git show
 
 Generate a detailed PR description combining Jira ticket context with actual code changes.
 
-## Step 0 — Get current branch context
-Run via Bash tool:
+## Current branch context
 ```
-git branch --show-current
-git log origin/main..HEAD --oneline 2>/dev/null | head -20 || git log main..HEAD --oneline | head -20
-git diff origin/main --stat 2>/dev/null | tail -8 || git diff main --stat | tail -8
+!`git branch --show-current`
+```
+```
+!`git log origin/main..HEAD --oneline 2>/dev/null | head -20 || git log main..HEAD --oneline | head -20`
+```
+```
+!`git diff origin/main --stat 2>/dev/null | tail -8 || git diff main --stat | tail -8`
 ```
 
 ## Usage

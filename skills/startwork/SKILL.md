@@ -1,9 +1,9 @@
 ---
 name: startwork
 description: Start work on a Jira ticket — fetch details, create branch, transition to In Progress. Add --wt flag to open in a new worktree window instead of switching this one. Add --project to target a specific repo.
-argument-hint: "DHK-NNNN [slug] [--wt] [--project opal-tools|opal-app|optimizely|frontdoor]"
+argument-hint: "DHK-NNNN [slug] [--wt] [--project opal-tools|opal-app|optimizely|frontdoor|authz-sdk]"
 disable-model-invocation: true
-allowed-tools: Bash(git checkout *) Bash(git branch *) Bash(git status *) Bash(git rev-parse *) Bash(git worktree *) Bash(git fetch *) Bash(poetry *) Bash(code *) Bash(pwd) Bash(cp *)
+allowed-tools: Bash(git checkout *) Bash(git branch *) Bash(git status *) Bash(git rev-parse *) Bash(git worktree *) Bash(git fetch *) Bash(git -C *) Bash(poetry *) Bash(npm install*) Bash(code *) Bash(pwd) Bash(cp *) Bash(mkdir *)
 ---
 
 # Start Work on a Jira Ticket
@@ -15,14 +15,15 @@ Two modes depending on whether `--wt` flag is present:
 - **Worktree mode** (`--wt`): create an isolated worktree and continue working in the same session
 
 **Known projects:**
-| Name | Path |
-|------|------|
-| opal-tools | `/Users/zahid.sarker/Official/Project/opal-tools` |
-| opal-app | `/Users/zahid.sarker/Official/Project/opal-app` |
-| optimizely | `/Users/zahid.sarker/Official/Project/optimizely` |
-| frontdoor | `/Users/zahid.sarker/Official/Project/frontdoor` |
+| Name | Path | Worktrees dir | Dep install |
+|------|------|---------------|-------------|
+| opal-tools | `/Users/zahid.sarker/Official/Project/opal-tools` | `opal-tools-wt/` | `poetry install --quiet` |
+| opal-app | `/Users/zahid.sarker/Official/Project/opal-app` | `opal-app-wt/` | `npm install` (check for package.json) |
+| optimizely | `/Users/zahid.sarker/Official/Project/optimizely` | `optimizely-wt/` | none (monolith — uses Docker) |
+| frontdoor | `/Users/zahid.sarker/Official/Project/frontdoor` | `frontdoor-wt/` | `cd frontdoor-go && go mod download` |
+| authz-sdk | `/Users/zahid.sarker/Official/Project/authz-sdk` | `authz-sdk-wt/` | `poetry install --quiet` |
 
-**Worktrees dir:** `/Users/zahid.sarker/Official/Project/opal-tools-wt/` (only for opal-tools worktrees)
+**Base dir:** `/Users/zahid.sarker/Official/Project/`
 
 ## Usage
 
@@ -55,7 +56,7 @@ From `$ARGUMENTS`:
 - If this succeeds → use that path as the target repo. Print: "Using current repo: `<path>`"
 - If this fails (not a git repo) → ask the user:
   ```
-  Current directory is not a git repository. Create branch in opal-tools? (yes / choose: opal-app | optimizely | frontdoor)
+  Current directory is not a git repository. Create branch in opal-tools? (yes / choose: opal-app | optimizely | frontdoor | authz-sdk)
   ```
   Wait for the response before continuing.
 
@@ -73,7 +74,7 @@ Use the Atlassian MCP tool with the issue key from step 1. Extract:
 ### Step 4 — Determine names
 - **Slug:** use custom slug if provided; otherwise derive from summary (lowercase, hyphens, max 5 words, skip filler words: a/an/the/for/to)
 - **Branch name:** `zahid-<TICKET-ID>-<slug>` (e.g. `zahid-DHK-4628-experiment-query-tool`). No type prefix.
-- **Worktree path** (only if `--wt` and target is opal-tools): `/Users/zahid.sarker/Official/Project/opal-tools-wt/<branch-name>`
+- **Worktree path** (if `--wt`): `/Users/zahid.sarker/Official/Project/<wt-dir>/<branch-name>` (look up `<wt-dir>` from the known projects table)
 
 ### Step 5 — Check git state
 Run via Bash tool (using the resolved repo path):
@@ -100,7 +101,12 @@ git -C <repo-path> worktree list
 
 ### Step 6b — Worktree mode (`--wt`)
 
-1. Fetch and create the worktree:
+1. Create the worktrees parent dir if needed:
+   ```bash
+   mkdir -p /Users/zahid.sarker/Official/Project/<wt-dir>
+   ```
+
+2. Fetch and create the worktree:
    ```bash
    git -C <repo-path> fetch origin
    # branch is new:
@@ -108,16 +114,24 @@ git -C <repo-path> worktree list
    # branch already exists on origin:
    git -C <repo-path> worktree add <worktree-path> <branch-name>
    ```
-2. Copy `.env` from the main repo to the worktree (it's gitignored and won't exist in the new worktree):
+
+3. Copy `.env` from the main repo to the worktree (gitignored, won't exist in the new worktree):
    ```bash
    cp <repo-path>/.env <worktree-path>/.env 2>/dev/null || echo "⚠️  No .env found in <repo-path> — you may need to create one manually"
    ```
-3. Install dependencies (if opal-tools — Python/poetry; if opal-app — check for package.json):
+   For opal-tools, also copy the TS backend .env:
    ```bash
-   cd <worktree-path> && poetry install --quiet 2>&1 | tail -3
+   cp <repo-path>/src/services/typescript_backend/.env <worktree-path>/src/services/typescript_backend/.env 2>/dev/null || true
    ```
-3. Transition ticket to In Progress (Atlassian MCP transition tool).
-4. Print work context (Step 7).
+
+4. Install dependencies using the project's dep install command from the known projects table:
+   ```bash
+   cd <worktree-path> && <dep-install-command> 2>&1 | tail -5
+   ```
+   Skip this step if dep install is "none" (e.g. optimizely).
+
+5. Transition ticket to In Progress (Atlassian MCP transition tool).
+6. Print work context (Step 7).
 
 ### Step 7 — Print work context
 

@@ -9,8 +9,10 @@ allowed-tools: Bash(git branch *)
 
 Fetch and display a Jira ticket in a readable format.
 
-## Step 0 — Get current branch
-Run via Bash tool: `git branch --show-current 2>/dev/null || echo "(not in a git repo)"`
+## Current branch
+```
+!`git branch --show-current 2>/dev/null || echo "(not in a git repo)"`
+```
 
 ## Usage
 
@@ -131,6 +133,12 @@ FAILS:    {"customfield_10020": {"id": 27165}}
 FAILS:    {"customfield_10020": [{"id": 27165}]}
 ```
 
+To find sprint IDs, query an existing ticket in the target sprint:
+```
+JQL: project = DHK AND sprint in futureSprints() ORDER BY created DESC
+```
+Then read `customfield_10020[0].id` from the response.
+
 ### Workflow Transitions (from any status)
 
 All transitions are global (available from any status):
@@ -147,6 +155,10 @@ All transitions are global (available from any status):
 | Closed       | `171`         | `6`              | Done        |
 | Accept       | `211`         | `10006`          | To Do       |
 
+Usage: `transitionJiraIssue(issueIdOrKey, transition: {id: "141"})` for In Progress.
+
+Note: "Closed" (`171`) `hasScreen: true` -- may require additional fields.
+
 ### Issue Link Types (common)
 
 | Name         | ID      | Inward               | Outward        |
@@ -157,7 +169,25 @@ All transitions are global (available from any status):
 | Blocks       | `10000` | is blocked by        | blocks         |
 | Dependency   | `10045` | Is Required For      | Depends On     |
 
-### Creating Issues — Minimal Examples
+For `createIssueLink`: inwardIssue = blocker, outwardIssue = blocked.
+Example: "A blocks B" -> `inwardIssue: "A", outwardIssue: "B", type: "2-Blocks"`
+
+### Other Custom Fields (optional, all types)
+
+| Field           | Key                | Format                          |
+|-----------------|--------------------|---------------------------------|
+| Story Points    | `customfield_10127`| Bare number: `3`                |
+| Task Size       | `customfield_10111`| `{"id": "10105"}` Small, `"10106"` Medium, `"10107"` Large |
+| Epic Link       | `customfield_10014`| Epic key string: `"DHK-1234"`   |
+| Labels          | `labels`           | Array: `["mcp", "opal-tools"]`  |
+| Assignee        | `assignee_account_id` | Account ID string (use `lookupJiraAccountId` to find) |
+
+### Content Format
+
+- Use `contentFormat: "markdown"` when writing descriptions/comments
+- Use `responseContentFormat: "markdown"` when reading (returns clean markdown instead of ADF JSON)
+
+### Creating Issues -- Minimal Examples
 
 **Bug** (has extra required fields):
 ```
@@ -182,7 +212,7 @@ createJiraIssue(
 createJiraIssue(
   cloudId: "optimizely-ext.atlassian.net",
   projectKey: "DHK",
-  issueTypeName: "Story",
+  issueTypeName: "Story",  // or "Tech Story"
   summary: "[MCP] Story title here",
   description: "...",
   contentFormat: "markdown",
@@ -190,6 +220,16 @@ createJiraIssue(
     "priority": {"name": "Normal"},
     "labels": ["mcp"]
   }
+)
+```
+
+### Assigning to Sprint (after creation)
+
+```
+editJiraIssue(
+  cloudId: "optimizely-ext.atlassian.net",
+  issueIdOrKey: "DHK-4732",
+  fields: {"customfield_10020": 27165}   // bare integer!
 )
 ```
 
@@ -207,10 +247,10 @@ project = DHK ORDER BY created DESC                  // recent tickets
 
 ### Common Pitfalls
 
-1. **Bug creation fails silently** if Severity/Regression are missing
+1. **Bug creation fails silently** if Severity/Regression are missing -- error says "Severity is required" / "Regression is required"
 2. **Sprint field format** is a bare integer, NOT `{"id": N}` or `[{"id": N}]`
-3. **Priority uses `name`** not `id` when passed via `additional_fields`
-4. **Link type names are prefixed** with numbers: use `"2-Blocks"` not `"Blocks"`
-5. **No active sprint may exist** — always check `openSprints()` before assuming
-6. **Closed transition has a screen** (`hasScreen: true`) — may require resolution or other fields
-7. **`responseContentFormat: "markdown"`** is key for readable output
+3. **Priority uses `name`** not `id` when passed via `additional_fields`: `{"priority": {"name": "Critical"}}`
+4. **Link type names are prefixed** with numbers in this instance: use `"2-Blocks"` not `"Blocks"` (though `"Blocks"` with ID `10000` also exists as a separate type)
+5. **No active sprint may exist** -- always check `openSprints()` before assuming; fall back to `futureSprints()`
+6. **Closed transition has a screen** (`hasScreen: true`) -- may require resolution or other fields
+7. **`responseContentFormat: "markdown"`** is key for readable output -- without it you get raw ADF JSON
