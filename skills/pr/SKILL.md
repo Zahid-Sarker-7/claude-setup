@@ -149,3 +149,110 @@ Rules for the share message:
 - No jargon, no file names, no technical internals unless essential
 - Start with the user-facing or system-level impact ("Users will now see...", "Fixes a bug where...", "Adds the ability to...")
 - Keep it to 2–3 lines max — short enough to paste into Slack or Teams without scrolling
+
+---
+
+## Step 12 — Offer CI monitoring
+
+After printing the share message, ask:
+
+```
+Monitor CI and auto-fix when checks complete? (yes / yes --auto / no)
+  --auto: fix CI failures and LOW/MEDIUM review comments without asking
+```
+
+**If no** → stop. Done.
+
+**If yes (or yes --auto)** → proceed to the CI monitoring loop below.
+
+---
+
+## CI Monitoring Loop
+
+Monitor the PR's CI checks with exponential backoff, then run /fixpr when actionable.
+
+```
+PR created
+  │
+  ▼
+Poll CI ──► still pending ──► backoff, poll again
+  │                              (3m → 5m → 8m → 12m, cap 12m)
+  │
+  ├─► all passed + no comments → DONE
+  │
+  └─► failed OR comments arrived
+        │
+        ▼
+    Run /fixpr logic ──► push triggers new CI
+        │
+        ▼
+    Reset backoff, resume polling (round N+1)
+        │
+        ├─► passes → DONE
+        └─► fails again → fix (max 3 rounds total)
+```
+
+### Backoff schedule
+
+Each consecutive poll where checks are still pending increases the wait:
+
+| Poll # | Wait | Cumulative |
+|--------|------|------------|
+| 1 | 5 min | 5 min |
+| 2 | 8 min | 13 min |
+| 3 | 12 min | 25 min |
+| 4+ | 15 min (cap) | 40 min+ |
+
+After a fix round (new push), reset the backoff to 5 min — the new CI run is fresh.
+
+### Stop conditions
+
+| Condition | Action |
+|-----------|--------|
+| All checks passed AND no unresolved review comments | Stop. Print "All green." |
+| 3 fix rounds exhausted | Stop. Print what's still failing, ask user to intervene |
+| 30 min total wall time with no progress (no new check results) | Stop. Print "CI seems stuck — check manually." |
+| User presses `Esc` | Loop cancelled |
+
+### Loop implementation
+
+Use Claude Code's dynamic loop scheduling (`ScheduleWakeup`). On each wake:
+
+1. **Check CI status:**
+   ```bash
+   gh pr checks <PR_NUMBER> 2>&1
+   ```
+
+2. **Categorize:**
+
+   | Status | Next step |
+   |--------|-----------|
+   | All passed | Check for review comments (step 3) |
+   | Any failed | Proceed to fix (step 4) |
+   | Any pending/running | Schedule next wake with backoff |
+
+3. **Check for review comments:**
+   ```bash
+   gh api graphql -f query='{ repository(owner:"<OWNER>",name:"<REPO>") { pullRequest(number:<N>) { reviewThreads(first:10) { nodes { isResolved } } } } }' --jq '.data.repository.pullRequest.reviewThreads.nodes | map(select(.isResolved == false)) | length'
+   ```
+   - 0 unresolved + all checks passed → **DONE**
+   - >0 unresolved → proceed to fix (step 4)
+
+4. **Fix round:**
+   - Increment `fix_round` counter. If `fix_round > 3` → **STOP**, report.
+   - **Attended mode (default):** Run the full /fixpr flow — present plan, wait for confirmation, fix, commit, push.
+   - **Auto mode (`--auto`):** Run /fixpr but auto-approve items where severity is LOW or MEDIUM and category is "code change" or "CI failure". Still present CRITICAL/HIGH items for user confirmation. If no CRITICAL/HIGH items, fix and push without asking.
+   - After push: reset backoff to 3 min, continue loop.
+
+5. **Schedule next wake:**
+   - Calculate delay from backoff schedule (5m → 8m → 12m → 15m cap)
+   - If pending polls > 4 AND cumulative time > 30 min with no check completion → **STOP**
+
+### State tracking
+
+Track across loop iterations via conversation context:
+- `fix_round`: number of fix-push cycles completed (max 3)
+- `poll_count`: number of consecutive "still pending" polls (for backoff)
+- `pr_number`: the PR being monitored
+- `mode`: "attended" or "auto"
+- `start_time`: when monitoring began (for 30-min timeout)
