@@ -32,7 +32,7 @@ They're tailored to my team's stack (Python/FastAPI, TypeScript, Go, Jira, Confl
                                  (or run manually anytime)
 ```
 
-## Skills (16)
+## Skills (17)
 
 ### Dev lifecycle
 
@@ -71,6 +71,7 @@ They're tailored to my team's stack (Python/FastAPI, TypeScript, Go, Jira, Confl
 | Skill | Command | Description | Claude Code Features |
 |-------|---------|-------------|---------------------|
 | **worktree** | `/worktree` | List or remove git worktrees across any project | `!`cmd`` context injection |
+| **handoff** | `/handoff` | Generate a session handoff report for continuity in a new session | `!`cmd``, auto-invoke |
 
 ### Claude Code features used
 
@@ -80,7 +81,7 @@ They're tailored to my team's stack (Python/FastAPI, TypeScript, Go, Jira, Confl
 | `context: fork` | Runs skill in an isolated subagent, keeping heavy output out of main conversation | debugdd, incident |
 | `agent: Explore` | Read-only subagent for fast, cheap analysis without full project context | debugdd, incident |
 | `disable-model-invocation: true` | Skill only runs when you type `/command` — prevents auto-triggering side effects | 12 skills |
-| Auto-invoke (omitted) | Claude triggers the skill automatically when relevant — for lookups and local dev ops | jira, confluence, opal-cli, opal-init |
+| Auto-invoke (omitted) | Claude triggers the skill automatically when relevant — for lookups, local dev, and session handoffs | jira, confluence, opal-cli, opal-init, handoff |
 | CI monitoring loop | After PR creation, polls CI with exponential backoff (5m→8m→12m→15m), auto-runs /fixpr | pr |
 
 ## Installation
