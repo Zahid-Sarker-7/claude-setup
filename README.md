@@ -32,7 +32,9 @@ They're tailored to my team's stack (Python/FastAPI, TypeScript, Go, Jira, Confl
                                  (or run manually anytime)
 ```
 
-## Skills (14)
+## Skills (16)
+
+### Dev lifecycle
 
 | Skill | Command | Description | Claude Code Features |
 |-------|---------|-------------|---------------------|
@@ -44,11 +46,30 @@ They're tailored to my team's stack (Python/FastAPI, TypeScript, Go, Jira, Confl
 | **pr** | `/pr` | Push, create PR, then monitor CI with exponential backoff + auto-fix | `!`cmd``, loop, backoff |
 | **fixpr** | `/fixpr` | Fix CI failures + review feedback — one batch commit+push | `!`cmd`` context injection |
 | **reviewpr** | `/reviewpr` | Deep PR review — validates ACs, posts inline comments | |
+
+### Local dev environment
+
+| Skill | Command | Description | Claude Code Features |
+|-------|---------|-------------|---------------------|
+| **opal-cli** | `/opal-cli` | Manage local stack — up/down/status/pull/sync/logs/clean/restart | auto-invoke |
+| **opal-init** | `/opal-init` | One-time setup from scratch — Docker, certs, hosts, opal-cli, pull, first run | auto-invoke |
+
+`/opal-init` runs once on a fresh machine. `/opal-cli` is used daily. Both span opal-app (Docker stack) and opal-tools (Python + TS backend).
+
+### Jira, Confluence & observability
+
+| Skill | Command | Description | Claude Code Features |
+|-------|---------|-------------|---------------------|
 | **jira** | `/jira` | Look up a Jira ticket (auto-invocable) | `!`cmd``, auto-invoke |
 | **ticket** | `/ticket` | Create Jira ticket(s) from conversation or description | |
 | **confluence** | `/confluence` | Search Confluence docs (auto-invocable) | auto-invoke |
 | **debugdd** | `/debugdd` | Debug via Datadog logs + codebase cross-reference | `context: fork`, `agent: Explore`, `!`cmd`` |
 | **incident** | `/incident` | Triage PagerDuty alerts using Datadog logs | `context: fork`, `agent: Explore` |
+
+### Utility
+
+| Skill | Command | Description | Claude Code Features |
+|-------|---------|-------------|---------------------|
 | **worktree** | `/worktree` | List or remove git worktrees across any project | `!`cmd`` context injection |
 
 ### Claude Code features used
@@ -59,7 +80,7 @@ They're tailored to my team's stack (Python/FastAPI, TypeScript, Go, Jira, Confl
 | `context: fork` | Runs skill in an isolated subagent, keeping heavy output out of main conversation | debugdd, incident |
 | `agent: Explore` | Read-only subagent for fast, cheap analysis without full project context | debugdd, incident |
 | `disable-model-invocation: true` | Skill only runs when you type `/command` — prevents auto-triggering side effects | 12 skills |
-| Auto-invoke (omitted) | Claude triggers the skill automatically when relevant — for read-only lookups | jira, confluence |
+| Auto-invoke (omitted) | Claude triggers the skill automatically when relevant — for lookups and local dev ops | jira, confluence, opal-cli, opal-init |
 | CI monitoring loop | After PR creation, polls CI with exponential backoff (5m→8m→12m→15m), auto-runs /fixpr | pr |
 
 ## Installation
@@ -99,6 +120,8 @@ These skills are built for my team's setup. To adapt them, update the team-speci
 | Datadog service names | `opal-tools` | debugdd, incident |
 | Branch naming pattern | `zahid-DHK-NNNN-slug` | startwork |
 | PR title format | `[DHK-NNNN] feat: ...` | pr |
+| Docker registry | `us-docker.pkg.dev/...` | opal-cli, opal-init |
+| opal-app/opal-tools paths | `/Users/.../opal-app`, `/Users/.../opal-tools` | opal-cli, opal-init |
 
 ## Prerequisites
 
